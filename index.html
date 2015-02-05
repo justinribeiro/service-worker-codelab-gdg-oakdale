@@ -756,5 +756,18 @@ if (myToken !== null) {
       </footer>
     </div>
     <script src="javascripts/scale.fix.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker-codelab-gdg-oakdale/sw.js', {
+          scope: '/service-worker-codelab-gdg-oakdale/'
+        }).then(function(registration) {
+          console.log('We are off to the races', registration);
+        }, function(error) {
+          console.log('This is no good.', error);
+        });
+      } else {
+        console.log('why is there no service worker, WHYYYYYY???');
+      }
+    </script>
   </body>
 </html>
