@@ -1,0 +1,742 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>ServiceWorker Codelab</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>ServiceWorker Codelab</h1>
+        <p>Getting started using ServiceWorker as seen at the February 2015 meetup at GDG Oakdale.</p>
+        <ul>
+          <li><a href="https://github.com/justinribeiro/sw-codelab-demo-tmp-tmp/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/justinribeiro/sw-codelab-demo-tmp-tmp/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/justinribeiro/sw-codelab-demo-tmp-tmp">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h3>
+          <a id="welcome" class="anchor" href="#welcome" aria-hidden="true">
+            <span class="octicon octicon-link"></span>
+          </a>Welcome!
+        </h3>
+        <p>This codelab is designed to help you learn about using ServiceWorker. During this lab, we're going to build a basic issue tracking page that talks to the Github API to retrieve issues within one of your repos and then make that available offline with Service Worker.</p>
+        
+        <h3>
+          <a id="things-we-use" class="anchor" href="#things-we-use" aria-hidden="true">
+            <span class="octicon octicon-link"></span>
+          </a>Things we'll use
+        </h3>
+        <p>Documentation! You can never have enough of it and during this codelab you may find yourself looking for one more method to go that extra mile. Docs you may find useful include:</p>
+        
+        <ul>
+          <li><a href="https://jakearchibald.github.io/isserviceworkerready/">Is ServiceWorker Ready?</a></li>
+          <li><a href="https://slightlyoff.github.io/ServiceWorker/spec/service_worker/">Service Workers Spec</a></li>
+          <li><a href="http://www.html5rocks.com/en/tutorials/service-worker/introduction/">Introduction to Service Worker</a></li>
+          <li><a href="https://developer.github.com/v3/">Github v3 API docs</a></li>
+        </ul>
+        
+        <h3>
+          <a id="getting-started" class="anchor" href="#getting-started" aria-hidden="true">
+            <span class="octicon octicon-link"></span>
+          </a>Getting started
+        </h3>
+        <p>First, let's start by creating a directory for our application:</p>
+<pre><code>➜ ~ mkdir my-magical-offline-tracker
+➜ ~ cd my-magical-offline-tracker
+</code></pre>
+
+        <p>Next, we need to create a few basic files:</p>
+        
+<pre><code>➜ ~ touch index.html
+➜ ~ touch css/main.css
+➜ ~ touch service-worker.js
+</code></pre>
+
+        <p>Now that we have a few files, let's add some basic markup to our html:</p>
+        
+<pre><code>&lt;html lang=&quot;en&quot;&gt;
+  &lt;head&gt;
+    &lt;meta charset=&quot;utf-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+    &lt;title&gt;My Magical Offline Issues&lt;/title&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;css/main.css&quot;&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;h1&gt;My Magical Offline Issue Tracker&lt;/h1&gt;
+    &lt;div&gt;
+      &lt;ul id=&quot;issues&quot;&gt;&lt;/ul&gt;
+    &lt;/div&gt;
+    &lt;div id=&quot;service-worker-log&quot;&gt;
+      &lt;p&gt;Registration: &lt;strong id=&quot;service-worker-registration&quot;&gt;&lt;/strong&gt;&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;script&gt;
+      // TO IMPLEMENT: Service Worker Registration
+    &lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+
+        <p>Basic page markup with some placeholders for things we'll be adding. You'll notice we have a script tag with a "TO IMPLEMENT: Service Worker Registration" comment, so let's start by adding a service worker registration. We can add this to our script tag:</p>
+
+<pre><code>if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js', {scope: './'}).then(function(registration) {
+    document.querySelector('#service-worker-registration').textContent = '✓ Success';
+  }).catch(function(error) {
+    document.querySelector('#service-worker-registration').textContent = '✘ Error:' + error;
+  });
+} else {
+  document.querySelector('#service-worker-registration').textContent = '✘ Unavailable!'
+}
+</code></pre>
+
+        <p>If we go ahead an start a basic http server (we'll show you how to do this with python for this purpose, but you can use any local http server you like):</p>
+
+<pre><code>➜ ~ python -m SimpleHTTPServer 4001
+</code></pre>
+
+        <p><blockquote>Tip: ServiceWorkers only work on HTTPS, but http://localhost is whitelisted for development purposes.</blockquote></p>
+
+        <p>And browse to http://localhost:4001/, you should see:</p>
+
+        <img src="images/step-01-registration.png" alt="service worker registration rocking!">
+      
+        <p>Look good? Great! What just happened?</p>
+
+        <ol>
+          <li><code>if ('serviceWorker' in navigator)</code> checks to see if we have serviceWorker available</li>
+          <li><code>navigator.serviceWorker.register()</code> defines which script is going to handle our worker operatons and in what context (in this case, our context says registration applies to our current directory and everything underneath)</li>
+          <li><code>navigator.serviceWorker.register()</code> returns a promise, so we use <code>.then()</code> and <code>.catch()</code> to handle when that promise returns.</li>
+        </ol>
+
+        <p>Note, our service-worker.js isn't doing anything yet, but we can still verify that it's been registered by visiting <code>chrome://inspect/#service-workers</code>. There'll you will see:</p>
+
+        <img src="images/step-01-inspect-in-tools.png" alt="service worker running, not yet killed.">
+
+        <p><blockquote>Stuck? Check the step-01 folder for a solution.</blockquote></p>
+
+        <h3>
+          <a id="getting-started" class="anchor" href="#more-events-please" aria-hidden="true">
+            <span class="octicon octicon-link"></span>
+          </a>More events please
+        </h3>
+
+        <p>To really understand the ServiceWorker under the hood, we have to step back and do a little more than just registration.</p>
+
+        <p>Let's start by modifying our index.html and add a spot for state:</p>
+
+<pre><code>&lt;html lang=&quot;en&quot;&gt;
+  &lt;head&gt;
+    &lt;meta charset=&quot;utf-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+    &lt;title&gt;My Magical Offline Issues&lt;/title&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;css/main.css&quot;&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;h1&gt;My Magical Offline Issue Tracker&lt;/h1&gt;
+    &lt;div&gt;
+      &lt;ul id=&quot;issues&quot;&gt;&lt;/ul&gt;
+    &lt;/div&gt;
+    &lt;div id=&quot;service-worker-log&quot;&gt;
+      &lt;p&gt;Registration: &lt;strong id=&quot;service-worker-registration&quot;&gt;&lt;/strong&gt;&lt;/p&gt;
+      &lt;p&gt;Registration State: &lt;strong id=&quot;service-worker-registration-state&quot;&gt;&lt;/strong&gt;&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;script&gt;
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./service-worker.js', {scope: './'}).then(function(registration) {
+          document.querySelector('#service-worker-registration').textContent = '✓ Success';
+        }).catch(function(error) {
+          document.querySelector('#service-worker-registration').textContent = '✘ Error:' + error;
+        });
+      } else {
+        document.querySelector('#service-worker-registration').textContent = '✘ Unavailable!'
+      }
+    &lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+
+        <p>Now, let's modified our Service Worker registration:</p>
+
+<pre><code>if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js', {scope: '/'}).then(function(registration) {
+
+    document.querySelector('#service-worker-registration').textContent = '✓ Success';
+
+    var swStateNode = document.querySelector('#service-worker-registration-state');
+
+    if (registration.installing) {
+      swStateNode.textContent = 'Installing...';
+    } else if (registration.waiting) {
+      swStateNode.textContent = 'Waiting...';
+    } else if (registration.active) {
+      swStateNode.textContent = '✓ Active!';
+    }
+    
+  }).catch(function(error) {
+    document.querySelector('#service-worker-registration').textContent = '✘ Error:' + error;
+  });
+} else {
+  document.querySelector('#service-worker-registration').textContent = '✘ Unavailable!'
+}
+</code></pre>
+
+        <p>Great, we've added the ability to see which state our service worker is in. Now let's modify our service-worker.js to give us some insight on the Service Worker event side:</p>
+
+<pre><code>self.addEventListener('install', function(event) {
+  console.log('Install event:', event);
+});
+
+self.addEventListener('activate', function(event) {
+  console.log('Activate event:', event);
+});
+</code></pre>
+
+      <p>What exactly do these events do?</p>
+
+      <ol>
+        <li><code>self.addEventListener('install', ...)</code> - Fired once on first register of this version of script, install is a good place to initialize your caches and prefetch data (you should be wrapping that work in a Promise, which we'll see in a bit).</li>
+        <li><code>self.addEventListener('activate', ...)</code> - Fired once on first register of this version of script, activate is a good place to clean up stale data from old versions of the script. Note, activate is not fired each time a ServiceWorker is revived from termination (we can use the onfetch or onmessage event listeners for such work)</li>
+      </ol>
+
+      <p>Now when we reload our page we'll see:</p>
+
+      <img src="images/step-02-more-registration.png" alt="more events goooooo!">
+
+      <p>If we go to <code>chrome://inspect/#service-workers</code> and click "inspect" under our serviceWorker, we'll see our console.log messages:</p>
+
+      <img src="images/step-02-console-logging.png" alt="console messages firing!">
+
+      <p><blockquote>Tip: When a new ServiceWorker is registered and in the <em>active</em> state, you can refresh the page to have the service worker take control.</blockquote></p>
+
+      <h3>
+        <a id="getting-started" class="anchor" href="#more-events-please" aria-hidden="true">
+          <span class="octicon octicon-link"></span>
+        </a>Let's go offline
+      </h3>
+
+      <p>We now know a little bit about what kind of events we have to work with, it's time to write some code and make our index.html page be available offline.</p>
+
+      <h3>
+        <a id="getting-started" class="anchor" href="#more-events-please" aria-hidden="true">
+          <span class="octicon octicon-link"></span>
+        </a>Cache our index.html with some css
+      </h3>
+      
+      <p>Chances are, our page will have some other resources as we build along. So let's slightly modifiy our index.html to add a wrapper div:</p>
+      
+<pre><code>[...]
+&lt;div class=&quot;wrapper&quot;&gt;
+  &lt;h1&gt;My Magical Offline Issue Tracker&lt;/h1&gt;
+  &lt;div&gt;
+    &lt;ul id=&quot;issues&quot;&gt;&lt;/ul&gt;
+  &lt;/div&gt;
+  &lt;div id=&quot;service-worker-log&quot;&gt;
+    &lt;p&gt;Registration: &lt;strong id=&quot;service-worker-registration&quot;&gt;&lt;/strong&gt;&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+[...]
+</code></pre>
+
+      <p>And let's throw some style into our main.css (feel free to be as creative as you like):</p>
+      
+<pre><code>html,body {
+  font-family: sans-serif;
+  font-size: 1em;
+}
+
+.wrapper {
+  width: 50%;
+  margin: auto;
+}
+</code></pre>
+      
+      <p>Now how do we make this offline? We'll need a cache.</p>
+      
+      <p>While ServiceWorker comes with a Cache API, it's not quite ready yet. Have no fear, we have a polyfill that's going to bridge the gap for us. You can find it in the <code>resources</code> directory for this codelab and we're just going to add it to the root of our project. Once added, we're going to import the script in our service-worker.js file as such:</p>
+
+<pre><code>importScripts('serviceworker-cache-polyfill.js');
+</code></pre>
+
+      <p>While we'll only be using one cache, it's good practice to make sure we version. So let's add a few variables to our service-worker.js that we can use later:</p>
+
+<pre><code>importScripts('serviceworker-cache-polyfill.js');
+var CACHE_VERSION = 1;
+var CURRENT_CACHES = {
+  mycache: 'my-cache-v-' + CACHE_VERSION
+};
+</code></pre>
+
+      <p><blockquote>Tip: Want to force the pages in the cache to purge and update? Increment the <code>CACHE_VERSION</code> (treat it like a constant, don't change the value in an event handler).</blockquote></p>
+
+      <p>Now we can change the way our <code>install</code> event handler operates by adding some urls to prefetch as adding them to the cache:</p>
+
+<pre><code>self.addEventListener('install', function(event) {
+  var urlsToCache = [
+    '/index.html',
+    '/css/main.css'
+  ];
+
+  event.waitUntil(
+    caches.open(CURRENT_CACHES['mycache']).then(function(cache) {
+      cache.addAll(urlsToCache.map(function(urlToCache) {
+        return new Request(urlToCache, {mode: 'no-cors'});
+      })).then(function() {
+        console.log('All urls have been fetched and cached.');
+      });
+    }).catch(function(error) {
+      console.error('Cache failed:', error);
+    })
+  );
+});
+</code></pre>
+
+      <p>Let's walk through what's happening:</p>
+
+      <ol>
+        <li>We define a set of urls that we want to cache in the array <code>urlsToCache</code></li>
+        <li><code>event.waitUntil</code> takes a promise from <code>caches.open</code> and uses that to understand how long our install is taking and whether we've succeeded</li>
+        <li><code>caches.open(CURRENT_CACHES['mycache'])</code> opens the cache we defined earlier</li>
+        <li><code>cache.addAll(urlsToPrefetch.map(function(urlToPrefetch) { ... }</code> adds all the urls we want to cache</li>
+        <li><code>return new Request(urlToCache, {mode: 'no-cors'});</code> runs our request, making note to use <code>mode: 'no-cors'}</code> in case we may run into a server that may not support CORS (ideally, you're managing this is, but see <a href="https://slightlyoff.github.io/ServiceWorker/spec/service_worker/index.html#cross-origin-resources">SW Spec - CORS</a> for more information)</li>
+      </ol>
+
+      <p>Now let's change out our <code>activate</code> event handler:</p>
+
+<pre><code>self.addEventListener('activate', function(event) {
+  // Delete all caches that aren't named in CURRENT_CACHES.
+  var expectedCacheNames = Object.keys(CURRENT_CACHES).map(function(key) {
+    return CURRENT_CACHES[key];
+  });
+
+  event.waitUntil(
+    caches.keys().then(function(cacheNames) {
+      return Promise.all(
+        cacheNames.map(function(cacheName) {
+          if (expectedCacheNames.indexOf(cacheName) == -1) {
+            console.log('Deleted out of date cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
+});
+</code></pre>
+
+      <p>As you can see, it looks similar to our install (we're again using <code>event.waitUntil</code> and waiting for a promise to return) and now we're going to delete our stale cache's via <code>caches.delete(cacheName)</code>.</p>
+
+      <p>Now, let's add a method to handle our <code>fetch</code> event handler. After a refresh or a navigation event, our service worker will begin receiving <code>fetch</code> events, but we need to handle them:</p>
+
+<pre><code>self.addEventListener('fetch', function(event) {
+  console.log('Fetch event:', event.request.url);
+
+  event.respondWith(
+    caches.match(event.request).then(function(response) {
+      if (response) {
+        console.log('Found in cache:', response);
+        return response;
+      }
+
+      console.log('No response found in cache. Fetch from network...');
+
+      var fetchRequest = event.request.clone();
+
+      return fetch(fetchRequest).then(
+        function(response) {
+          if(!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
+
+          var responseToCache = response.clone();
+
+          caches.open(CURRENT_CACHES['mycache']).then(function(cache) {
+              var cacheRequest = event.request.clone();
+              console.log("Add to cache:" + cacheRequest);
+              cache.put(cacheRequest, responseToCache);
+            });
+
+          return response;
+        });
+      
+    })
+  );
+});
+</code></pre>
+
+      <p>Let's walk through what's happening:</p>
+
+      <ul>
+        <li><code>event.respondWith</code> is going to take over the fetch from the browser and respond how we want. Not calling it would result in the browser doing what it normally would do (check browser cache, fetch resource).</li>
+        <li><code>caches.match</code> is going to check out cache to see if we have that resource and return a promise.</li>
+        <li>If that response is found, we're going to return it from the cache with <code>return response;</code></li>
+        <li>If we don't have it in the cache, we need to fetch it from the network. To do so, we clone our fetch request (<code>var fetchRequest = event.request.clone();</code>) and then run our fetch via <code>return fetch(fetchRequest).then(...)</code></li>
+      </ul>
+
+      <p><blockquote>Why the clone of request? As per Matt Gaunt's <a href="http://www.html5rocks.com/en/tutorials/service-worker/introduction/">excellent introduction article</a> on Service Workers: "A request is a stream and can only be consumed once. Since we are consuming this once by cache and once by the browser for fetch, we need to clone the response"</blockquote></p>
+
+      <ul>
+        <li>Within the return promise from our fetch, We use <code>cache.put()</code> to add to our cache and then return the response.</li>
+      </ul>
+
+      <p>Now let's modifiy our index.html to make our Service Worker handle a little better:</p>
+
+<pre><code>function waitUntilInstalled(registration) {
+  return new Promise(function(resolve, reject) {
+    if (registration.installing) {
+      document.querySelector('#service-worker-registration').textContent = 'Installing...';
+      registration.installing.addEventListener('statechange', function(e) {
+        if (e.target.state == 'installed') {
+          document.querySelector('#service-worker-registration').textContent = '✓ Success';
+          resolve();
+        } else if(e.target.state == 'redundant') {
+          document.querySelector('#service-worker-registration').textContent = '✘ Redundent';
+          reject();
+        }
+      });
+    } else {
+      document.querySelector('#service-worker-registration').textContent = '✓ Already Installed!';
+      resolve();
+    }
+  });
+}
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js', {scope: '/'})
+    .then(waitUntilInstalled)
+    .catch(function(error) {
+      document.querySelector('#service-worker-registration').textContent = '✘ Error:' + error;
+    });
+} else {
+  document.querySelector('#service-worker-registration').textContent = '✘ Unavailable!'
+}
+</code></pre>
+
+      <p>With all the pieces in place, now what? First, we need to make sure our old service worker has been garbage collected. To do so, we close out any existing tabs that might be using that service worker. This allows our updated service worker to take over once the page is visited again. We now see that our service worker is caching resources that we've specified:</p>
+
+      <img src="images/step-03-fetch-and-store.png" alt="handling the resource list and storing in cache">
+
+      <p>On a reload, we can see that our page is now serving resources from the cache:</p>
+      
+      <img src="images/step-03-serve-from-cache.png" alt="serving from the our service worker cache">
+      
+      <p>This is also confirmed in DevTools proper by looking at the network tab (notice the resources say "from service worker"):</p>
+      
+      <img src="images/step-03-devtools-network-panel.png" alt="dev tools network panel">
+      
+      <p>The final test is to stop your local development http server (ctrl-c for those of you using the python line above). What occurs is something fantastic: the page serves as normal. Disable your network. Use the offline mode in DevTools. The result is the same: the page continues to work. Service Worker for the win!</p>
+
+      <p><blockquote>Different kinds of cache's. The cache outlined above is a basic, single cache. For more cache types and approaches, see <a href="https://github.com/GoogleChrome/samples/tree/gh-pages/service-worker">Chrome's Service Worker Recipes @ Github</a></blockquote></p>
+
+      <h3>
+        <a id="getting-started" class="anchor" href="#more-events-please" aria-hidden="true">
+          <span class="octicon octicon-link"></span>
+        </a>Actually building the issue tracker
+      </h3>
+
+      <p>Now that we have a some understanding of how Service Worker works, let's build our offline issue tracker.</p>
+
+      <p>First, we'll need a spot to run some of our code, so let's create a main.js file:</p>
+
+<pre><code>➜ ~ touch js/main.js
+</code></pre>
+
+      <p>Second, you'll need to grab the <code>github_api.js</code> from the resources directory and add it to your projects' js folder.</p>
+
+      <p>The <code>github_api.js</code> is our slimmed down library that gives us two methods that we can use:</p>
+
+<pre><code>/**
+*
+* Get who I am
+*
+* @param {String} token 
+* @return {Promise}
+*/
+GitHub.getMe(token)
+
+/**
+*
+* Get my assigned issues
+*
+* @param {String} token 
+* @return {Promise}
+*/
+GitHub.getMyIssues(token) 
+</code></pre>
+
+<p>Some important things to note:</p>
+
+      <ol>
+        <li>You'll need to generate a personal access token from your Github user via <a href="https://github.com/settings/applications">the applications</a> page.</li>
+        <li>The GitHub.getMyIssues method will only return tickets you assigned to. If you want to expand that, you can modify the method with parameters via the Github v3 API documentation (see <a href="https://developer.github.com/v3/issues/#list-issues">List Issues</a>)</li>
+        <li>Remember, our Github library returns <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise">Promises</a>.</li>
+      </ol>
+
+      <p>Now let's update our <code>index.html</code> file so we can use our new files:</p>
+
+<pre><code>[...]
+  &lt;body&gt;
+    &lt;div class=&quot;wrapper&quot;&gt;
+      &lt;h1&gt;My Magical Offline Issue Tracker&lt;/h1&gt;
+      &lt;div&gt;
+        &lt;ul id=&quot;issues&quot;&gt;&lt;/ul&gt;
+      &lt;/div&gt;
+
+      &lt;div id=&quot;service-worker-log&quot;&gt;
+        &lt;p&gt;Registration: &lt;strong id=&quot;service-worker-registration&quot;&gt;&lt;/strong&gt;&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;script src=&quot;js/github_api.js&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;js/main.js&quot;&gt;&lt;/script&gt;
+    &lt;script&gt;
+    [...service worker fire up...]
+    &lt;/script&gt;
+  &lt;/body&gt;
+  [...]
+</code></pre>
+
+      <p>Since we're going to need those files to work offline, Let's also update our list of cache file in our service-worker.js:</p>
+
+<pre><code>[...]
+self.addEventListener('install', function(event) {
+var urlsToCache = [
+  '/index.html',
+  '/css/main.css',
+  '/js/github_api.js',
+  '/js/main.js'
+];
+[...]
+</code></pre>
+
+      <p>Great. Now we need a way to put our access token in so that we can utilize the API. We don't want to store it in our code (that would be bad), but we can add a simple form field and use localStorage to store that value.</p>
+
+      <p>Update <code>index.html</code>:</p>
+
+<pre><code>[...]
+&lt;h1&gt;My Magical Offline Issue Tracker&lt;/h1&gt;
+&lt;h2&gt;Personal Token&lt;/h2&gt;
+&lt;p&gt;Generate a Personal Access Token via Github: &lt;a href=&quot;https://github.com/settings/applications&quot;&gt;https://github.com/settings/applications&lt;/a&gt;.&lt;/p&gt;
+&lt;form&gt;
+  &lt;label for=&quot;githubToken&quot;&gt;Github Token&lt;/label&gt;
+  &lt;input id=&quot;githubToken&quot; type=&quot;text&quot;&gt;
+  &lt;button id=&quot;save&quot; type=&quot;button&quot;&gt;Save&lt;/button&gt;
+&lt;/form&gt;
+&lt;h2 id=&quot;username&quot;&gt;&lt;/h2&gt;
+[...]
+</code></pre>
+
+      <p>Update <code>main.js</code>:</p>
+
+<pre><code>var username = document.getElementById('username');
+var issueList = document.getElementById('issues');
+var githubToken = document.getElementById('githubToken');
+var saveButton = document.getElementById('save');
+
+saveButton.addEventListener('click', function() {
+  localStorage.setItem('githubToken', githubToken.value);
+});
+</code></pre>
+
+      <p>Now that we have a token to use, let's implement a function to get our assigned issues and some basic user info in <code>main.js</code>:</p>
+
+<pre><code>var refreshIssues = function(cache) {
+  var githubToken = localStorage.getItem('githubToken');
+
+  while (issueList.firstChild) {
+    issueList.removeChild(issueList.firstChild);
+  }
+
+  GitHub.getMyIssues(githubToken, cache).then(function (issues) {
+    (issues).forEach(function(issue) {
+      var li = document.createElement('li');
+      li.innerText = '#' + issue.number + ' - ' + issue.title;
+
+      issueList.appendChild(li);
+    });
+  });
+  GitHub.getMe(githubToken, cache).then(function (me) {
+    username.textContent = me.login;
+  });
+};
+</code></pre>
+
+      <p>You'll note that we've decided to have our function take a parameter called <code>cache</code>. The cache parameter is a boolean which will tell us when Service Worker should serve results from the cache. How does that work?</p>
+
+      <p>If we take a peek at the <code>github_api.js</code> source, the method <code>_request()</code> has a statement which adds a header to our request when true:</p>
+
+<pre><code>if (cache) {
+  request.setRequestHeader('X-Cache', 'x-cache/only');
+} 
+</code></pre>
+
+      <p>This little piece of code will allow us to update our Service Worker to serve from the cache first and then fallback to the network. This approach is outlined in Google Chrome Developer Advocate Jake Archibald's <a href="http://jakearchibald.com/2014/offline-cookbook/#cache-then-network">"cache then network"</a> approach, and allows us to not wait for the network (which in poor network conditions, could be terribly slow).</p>
+
+      <p>To use this approach, let's add a couple of actions to our <code>main.js</code> first:</p>
+
+      <ol>
+        <li>When a token is saved, load the API requests and cache them with Service Worker</li>
+        <li>On subsequent reload of the page, if we have a token, load from the cache first</li>
+      </ol>
+
+      <p>With those actions, let's first update our save event listener in <code>main.js</code>:</p>
+
+<pre><code>saveButton.addEventListener('click', function() {
+  localStorage.setItem('githubToken', githubToken.value);
+  refreshIssues(false);
+  saveButton.textContent = 'Refresh';
+});
+</code></pre>
+
+      <p>Here we pass false, as we don't want to serve from the cache.</p>
+
+      <p>Next, let's add a simple token check and pull from the cache:</p>
+
+<pre><code>var myToken = localStorage.getItem('githubToken');
+
+if (myToken !== null) {
+  saveButton.textContent = 'Refresh';
+  refreshIssues(true);
+  githubToken.value = myToken;
+}
+</code></pre>
+
+      <p>Now that we have the pieces, we can start to work on our <code>service-worker.js</code>. First, let's add a cache for just the github requests:</p>
+
+<pre><code>var CURRENT_CACHES = {
+  mycache: 'my-cache-v-' + CACHE_VERSION,
+  github: 'my-github-v-' + CACHE_VERSION
+};
+</code></pre>
+
+      <p>Now, we're going to modify our <code>self.addEventListener('fetch', ...)</code> to handle calls to Github differently:</p>
+
+<pre><code>self.addEventListener('fetch', function(event) {
+  var requestURL = new URL(event.request.url);
+  if (requestURL.hostname == 'api.github.com') {
+    event.respondWith(githubApiResponse(event.request));
+  } else {
+    event.respondWith(
+      caches.match(event.request).then(function(response) {
+        if (response) {
+          console.log('Found response in cache:', response);
+          return response;
+        }
+
+        console.log('No response found in cache. Fetch from network...');
+
+        var fetchRequest = event.request.clone();
+        return fetch(fetchRequest).then(
+          function(response) {
+            if(!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
+            var responseToCache = response.clone();
+
+            caches.open(CURRENT_CACHES['mycache']).then(function(cache) {
+                var cacheRequest = event.request.clone();
+                console.log("adding to cache");
+                cache.put(cacheRequest, responseToCache);
+              });
+
+            return response;
+          });
+      })
+    );
+  }
+});
+</code></pre>
+
+      <p>You can see that we're still doing the normal fetch for our other resources, but that we've added a check <code>if (requestURL.hostname == 'api.github.com')</code> and call a new function <code>githubApiResponse()</code>. What does that function need to do?</p>
+
+      <ol>
+        <li>Needs to check if we need to return from the cache</li>
+        <li>If not the cache, pull from the network and update the cache</li>
+      </ol>
+
+      <p>Knowing that we add an X-Cache header as needed in the Github lib we're using, we can now write our <code>githubApiResponse()</code> as such:</p>
+
+<pre><code>function githubApiResponse(request) {
+  if (request.headers.get('X-Cache') !== null && request.headers.get('X-Cache') == 'x-cache/only') {
+    console.log('Returning Github response from cache');
+    return caches.match(request);
+  }
+  else {
+    return fetch(request.clone()).then(function(response) {
+      return caches.open(CURRENT_CACHES['github']).then(function(cache) {
+
+          // We're a stream: if you don't clone, bad things happen
+          var cacheRequest = request.clone();
+          var cacheResponse = response.clone();
+
+          cache.put(cacheRequest, cacheResponse).then(function() {
+            console.log("Adding new Github response to cache", cacheRequest, cacheResponse);
+          }, function() {
+            console.log("Something went horribly wrong");
+          });
+
+        return response;
+      });
+    });
+  }
+}
+</code></pre>
+
+      <p>Walking through the code, we see that:</p>
+
+      <ol>
+        <li>If we have the <code>X-Cache</code> header, we return the matching request from the cache</li>
+        <li>If we don't have <code>X-Cache</code> header, run our fetch and cache the result in <code>CURRENT_CACHES['github']</code></li>
+      </ol>
+
+      <p>Once we've put these pieces together, we can run our new app in Chrome and once we've added and saved a token for the first time, we can go offline to see the entire change take over:</p>
+
+      <img src="images/step-04-serviceworker-codelab-testing.png" alt="all the things cached">
+
+      <p><blockquote>Stuck? Check the step-04 folder for a solution.</blockquote></p>
+
+      <h3>
+        <a id="getting-started" class="anchor" href="#more-events-please" aria-hidden="true">
+          <span class="octicon octicon-link"></span>
+        </a>Success!
+      </h3>
+
+      <p>Congratulations! You have completed this codelab! Have some extra time? Things for consideration:</p>
+
+      <ul>
+        <li>Make it look fancy with your UI libs and css of choice</li>
+        <li>Write a smarter Service Worker (make that cache perform even better)</li>
+        <li>Add a timer for updates to assigned issues</li>
+      </ul>
+
+      <h3>
+        <a id="getting-started" class="anchor" href="#more-events-please" aria-hidden="true">
+          <span class="octicon octicon-link"></span>
+        </a>Resources
+      </h3>
+
+      <ul>
+        <li><a href="https://jakearchibald.github.io/isserviceworkerready/">Is ServiceWorker Ready?</a></li>
+        <li><a href="https://slightlyoff.github.io/ServiceWorker/spec/service_worker/">Service Workers Spec</a></li>
+        <li><a href="http://www.html5rocks.com/en/tutorials/service-worker/introduction/">Introduction to Service Worker</a></li>
+        <li><a href="http://jakearchibald.com/2014/offline-cookbook/">The Offline Cookbook</a></li>
+        <li><a href="https://github.com/jeffposnick/service-worker-cache">&lt;service-worker-cache&gt; Polymer Element</a></li>
+        <li><a href="https://github.com/GoogleChrome/samples/tree/gh-pages/service-worker">Chrome's Service Worker Recipes</a></li>
+      </ul>
+
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/justinribeiro">justinribeiro</a> and <a href="https://github.com/jamesduvall">jamesduvall</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+  </body>
+</html>
