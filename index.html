@@ -121,7 +121,7 @@
 
         <img src="images/step-01-inspect-in-tools.png" alt="service worker running, not yet killed.">
 
-        <p><blockquote>Stuck? Check the step-01 folder for a solution.</blockquote></p>
+        <p><blockquote>Stuck? Check the <a href="https://github.com/justinribeiro/service-worker-codelab-gdg-oakdale/tree/master/step-01">step-01</a> folder for a solution.</blockquote></p>
 
         <h3>
           <a id="getting-started" class="anchor" href="#more-events-please" aria-hidden="true">
@@ -207,7 +207,23 @@ self.addEventListener('activate', function(event) {
         <li><code>self.addEventListener('activate', ...)</code> - Fired once on first register of this version of script, activate is a good place to clean up stale data from old versions of the script. Note, activate is not fired each time a ServiceWorker is revived from termination (we can use the onfetch or onmessage event listeners for such work)</li>
       </ol>
 
-      <p>Now when we reload our page we'll see:</p>
+      <p>At this point, we also need to understand the life cycle of how this updated <code>service-worker.js</code> works:</p>
+
+      <ol>
+        <li>When we browse to our site, the service worker script is downloaded and compared to what the browser currently has. The browser compares bytes; a difference means that the browser will consider this new downloaded version "new".</li>
+        <li>The new service worker is started and <code>self.addEventListener('install', ...)</code> is fired.</li>
+        <li>The old service worker will still be in control and the new service worker will be in the "waiting" state.</li>
+        <li>Once all pages or tabs using the old service worker are closed, the new service worker takes over.</li>
+        <li>When the new service work takes control, <code>self.addEventListener('activate', ...)</code> will fire.</li>
+      </ol>
+
+      <p>What does all this mean? We have to follow a procedure to test this new service worker.</p>
+
+      <ol>
+        <li>Open a new tab for <code>http://localhost:4001</code>.</li>
+        <li>Close any and all pages or tabs that were previously running <code>http://localhost:4001</code>.</li>
+        <li>Reload the tab opened in bullet point #1 above and you should see:</li>
+      </ol>
 
       <img src="images/step-02-more-registration.png" alt="more events goooooo!">
 
@@ -215,7 +231,7 @@ self.addEventListener('activate', function(event) {
 
       <img src="images/step-02-console-logging.png" alt="console messages firing!">
 
-      <p><blockquote>Tip: When a new ServiceWorker is registered and in the <em>active</em> state, you can refresh the page to have the service worker take control.</blockquote></p>
+      <p><blockquote>Tip: In practice, sometimes things do not go so smoothly. When that happens, you can use <code>chrome://serviceworker-internals/</code> to do a little more, including unregistering your service worker and see Install/Running status. Note, this chrome page may go away in the future, but for now it can be very useful.</blockquote></p>
 
       <h3>
         <a id="getting-started" class="anchor" href="#more-events-please" aria-hidden="true">
@@ -261,10 +277,12 @@ self.addEventListener('activate', function(event) {
       
       <p>Now how do we make this offline? We'll need a cache.</p>
       
-      <p>While ServiceWorker comes with a Cache API, it's not quite ready yet. Have no fear, we have a polyfill that's going to bridge the gap for us. You can find it in the <code>resources</code> directory for this codelab and we're just going to add it to the root of our project. Once added, we're going to import the script in our service-worker.js file as such:</p>
+      <p>While ServiceWorker comes with a Cache API, we have a polyfill that's going to bridge the gap for us for things that aren't quite there yet. You can find it in the <code>resources</code> directory for this codelab and we're just going to add it to the root of our project. Once added, we're going to import the script in our service-worker.js file as such:</p>
 
 <pre><code>importScripts('serviceworker-cache-polyfill.js');
 </code></pre>
+
+<p><blockquote>Fun fact: See <a href="https://github.com/coonsta/cache-polyfill/commit/7702c6cc549fcd69efdcacbf1e8cf355e87deccb">this commit</a> to see when the polyfill was greatly reduced in size due to native implementation. Whoo hoo!</blockquote></p>
 
       <p>While we'll only be using one cache, it's good practice to make sure we version. So let's add a few variables to our service-worker.js that we can use later:</p>
 
