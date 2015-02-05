@@ -1,0 +1,41 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Magical Offline Issues</title>
+    <link rel="stylesheet" href="css/main.css">
+  </head>
+  <body>
+    <h1>My Magical Offline Issue Tracker</h1>
+    <div>
+      <ul id="issues"></ul>
+    </div>
+    <div id="service-worker-log">
+      <p>Registration: <strong id="service-worker-registration"></strong></p>
+      <p>Registration State: <strong id="service-worker-registration-state"></strong></p>
+    </div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./service-worker.js', {scope: './'}).then(function(registration) {
+      
+          document.querySelector('#service-worker-registration').textContent = '✓ Success';
+      
+          var swStateNode = document.querySelector('#service-worker-registration-state');
+      
+          if (registration.installing) {
+            swStateNode.textContent = 'Installing...';
+          } else if (registration.waiting) {
+            swStateNode.textContent = 'Waiting...';
+          } else if (registration.active) {
+            swStateNode.textContent = '✓ Active!';
+          }
+          
+        }).catch(function(error) {
+          document.querySelector('#service-worker-registration').textContent = '✘ Error:' + error;
+        });
+      } else {
+        document.querySelector('#service-worker-registration').textContent = '✘ Unavailable!'
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,62 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Magical Offline Issues</title>
+    <link rel="stylesheet" href="css/main.css">
+  </head>
+  <body>
+    <div class="wrapper">
+      <h1>My Magical Offline Issue Tracker</h1>
+
+      <h2>Personal Token</h2>
+      <p>Generate a Personal Access Token via Github: <a href="https://github.com/settings/applications">https://github.com/settings/applications</a>.</p>
+      <form>
+        <label for="githubToken">Github Token</label>
+        <input id="githubToken" type="text">
+        <button id="save" type="button">Save</button>
+      </form>
+
+      <h2 id="username"></h2>
+      <div>
+        <ul id="issues"></ul>
+      </div>
+
+      <div id="service-worker-log">
+        <p>Registration: <strong id="service-worker-registration"></strong></p>
+      </div>
+    </div>
+    <script src="js/github_api.js"></script>
+    <script src="js/main-v1.js"></script>
+    <script>
+      function waitUntilInstalled(registration) {
+        return new Promise(function(resolve, reject) {
+          if (registration.installing) {
+            document.querySelector('#service-worker-registration').textContent = 'Installing...';
+            registration.installing.addEventListener('statechange', function(e) {
+              if (e.target.state == 'installed') {
+                document.querySelector('#service-worker-registration').textContent = '✓ Success';
+                resolve();
+              } else if(e.target.state == 'redundant') {
+                document.querySelector('#service-worker-registration').textContent = '✘ Redundent';
+                reject();
+              }
+            });
+          } else {
+            document.querySelector('#service-worker-registration').textContent = '✓ Already Installed!';
+            resolve();
+          }
+        });
+      }
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js', {scope: '/'})
+          .then(waitUntilInstalled)
+          .catch(function(error) {
+            document.querySelector('#service-worker-registration').textContent = '✘ Error:' + error;
+          });
+      } else {
+        document.querySelector('#service-worker-registration').textContent = '✘ Unavailable!'
+      }
+    </script>
+  </body>
+</html>
